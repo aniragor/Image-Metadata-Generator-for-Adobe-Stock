@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Metadata Generator</title>
+    <link rel="stylesheet" href="index.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.sh/@google/genai@^0.7.0"
+      }
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header-container">
+      <h1 data-lang="appTitle">Image Metadata Generator</h1>
+      <div class="language-controls">
+        <div class="language-selector-container">
+          <label for="languageSelector" data-lang="uiLanguageLabel">App Language</label>
+          <select id="languageSelector"></select>
+        </div>
+        <div class="language-selector-container">
+          <label for="metadataLanguageSelector" data-lang="metadataLanguageLabel">Metadata Language</label>
+          <select id="metadataLanguageSelector"></select>
+        </div>
+      </div>
+    </div>
+    <p data-lang="appDescription">
+      Upload one or more images to generate SEO-optimized titles, keywords, and categories using Gemini.
+    </p>
+    <div id="contentWrapper" class="content-wrapper">
+       <div id="imageContainer" class="image-container">
+          <div id="uploadArea">
+               <input type="file" id="imageUpload" accept="image/*" hidden multiple>
+               <label for="imageUpload" class="button" data-lang="uploadButton">Upload Image(s)</label>
+          </div>
+          <div id="previewsContainer" class="previews-container">
+            <!-- Image previews will be dynamically inserted here -->
+          </div>
+          <div id="globalKeywordContainer" class="global-keyword-container">
+            <label for="globalKeywordInput" class="global-keyword-label" data-lang="globalKeywordLabel">Add a keyword for all images (optional)</label>
+            <input type="text" id="globalKeywordInput" class="keyword-input" data-lang-placeholder="globalKeywordPlaceholder" placeholder="e.g., celebration">
+          </div>
+          <div id="actionsContainer" class="actions-container">
+            <button id="generateButton" class="button" disabled data-lang="generateButton">Generate Metadata</button>
+            <button id="clearAllButton" class="button button-secondary" data-lang="clearAllButton">Clear All</button>
+          </div>
+      </div>
+      <div id="resultsContainer" class="results-container">
+        <div class="placeholder">
+          <p data-lang="resultsPlaceholderUpload">Upload one or more images to begin.</p>
+        </div>
+        <div id="resultsList" class="results-list">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+      </div>
+    </div>
+     <div id="errorMessage" class="error-message"></div>
+     <div id="imagePreviewTooltip" class="image-preview-tooltip"></div>
+     <div id="imageModal" class="modal">
+        <span class="modal-close" aria-label="Close image preview">&times;</span>
+        <img class="modal-content" id="modalImage" alt="Image Preview">
+    </div>
+  </div>
+  <script type="module" src="index.tsx"></script>
+</body>
+</html>

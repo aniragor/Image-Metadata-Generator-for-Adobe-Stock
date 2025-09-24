@@ -1,0 +1,7 @@
+{
+  "name": "Image Metadata Generator",
+  "description": "Upload an image to automatically generate SEO-optimized titles, keywords, and categories using Gemini.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
