@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, GenerateContentResponse } from '@google/genai';
 
 // --- Type Definitions ---
 interface UploadedImage {
@@ -252,7 +252,13 @@ let currentMetadataLanguage = 'en';
 
 
 // --- Constants ---
-const METADATA_PROMPT = `Write an SEO-optimized title for it, following the format [who or what is in the picture] [with what mood] [what they are doing or what it represents] [against what background] for images of living beings. For other types of images, use the format [what and in what style] [in what colors] [what it represents or what it is used for]. If the picture has a lot of empty space for text, add [with copy space] to the title. Next, provide 49 popular single-word keywords divided by image, including the following: What is depicted in the picture (considering the number or uniqueness of the object) Image angles, colors, moods, themes, locations, ages, skin tones, genders Relevant holidays for which this image may be suitable. If the image could be directly or indirectly related to a holiday, be sure to include that holiday. Do not use words that are already in the title; keywords should expand the search terms. The earlier a word appears in the list, the more relevant it should be to the search, meaning it's more likely that the word will be used to search for the image. Separate the keywords with commas. Be sure that you provide no more than 49 keywords. You also should choose the Category for the image should be match one from the list below. Category: 1. Animals: Content related to animals, insects, or pets — at home or in the wild. 2. Buildings and Architecture: Structures like homes, interiors, offices, temples, barns, factories, and shelters. 3. Business: People in business settings, offices, business concepts, finance, and money 4. Drinks: Content related to beer, wine, spirits, and other drinks. 5. The Environment: Depictions of nature or the places we work and live. 6. States of Mind: Content related to people’s emotions and inner voices. 7. Food: Anything focused on food and eating. 8. Graphic Resources: Backgrounds, textures, and symbols. 9. Hobbies and Leisure: Pastime activities that bring joy and/or relaxation, such as knitting, building model airplanes, and sailing. 10. Industry: Depictions of work and manufacturing, like building cars, forging steel, producing clothing, or producing energy. 11. Landscape: Vistas, cities, nature, and other locations. 12. Lifestyle: The environments and activities of people at home, work, and play. 13. People: People of all ages, ethnicities, cultures, genders, and abilities. 14. Plants and Flowers: Close-ups of the natural world. 15. Culture and Religion: Depictions of the traditions, beliefs, and cultures of people around the world. 16. Science: Content with a focus on the applied, natural, medical, and theoretical sciences. 17. Social Issues: Poverty, inequality, politics, violence, and other depictions of social issues. 18. Sports: Content focused on sports and fitness, including football, basketball, hunting, yoga, and skiing. 19. Technology: Computers, smartphones, virtual reality, and other tools designed to increase productivity. 20. Transport: Different types of transportation, including cars, buses, trains, planes, and highway systems. 21. Travel: Local and worldwide travel, culture, and lifestyles. IMPORTANT: Your entire output must be a single, valid JSON object with three keys: "title", "keywords", and "category". The "keywords" value should be a single string of comma-separated words.`;
+const CATEGORIES_LIST = `You also should choose the Category for the image should be match one from the list below. Category: 1. Animals: Content related to animals, insects, or pets — at home or in the wild. 2. Buildings and Architecture: Structures like homes, interiors, offices, temples, barns, factories, and shelters. 3. Business: People in business settings, offices, business concepts, finance, and money 4. Drinks: Content related to beer, wine, spirits, and other drinks. 5. The Environment: Depictions of nature or the places we work and live. 6. States of Mind: Content related to people’s emotions and inner voices. 7. Food: Anything focused on food and eating. 8. Graphic Resources: Backgrounds, textures, and symbols. 9. Hobbies and Leisure: Pastime activities that bring joy and/or relaxation, such as knitting, building model airplanes, and sailing. 10. Industry: Depictions of work and manufacturing, like building cars, forging steel, producing clothing, or producing energy. 11. Landscape: Vistas, cities, nature, and other locations. 12. Lifestyle: The environments and activities of people at home, work, and play. 13. People: People of all ages, ethnicities, cultures, genders, and abilities. 14. Plants and Flowers: Close-ups of the natural world. 15. Culture and Religion: Depictions of the traditions, beliefs, and cultures of people around the world. 16. Science: Content with a focus on the applied, natural, medical, and theoretical sciences. 17. Social Issues: Poverty, inequality, politics, violence, and other depictions of social issues. 18. Sports: Content focused on sports and fitness, including football, basketball, hunting, yoga, and skiing. 19. Technology: Computers, smartphones, virtual reality, and other tools designed to increase productivity. 20. Transport: Different types of transportation, including cars, buses, trains, planes, and highway systems. 21. Travel: Local and worldwide travel, culture, and lifestyles.`;
+const JSON_OUTPUT_INSTRUCTION = `IMPORTANT: Your entire output must be a single, valid JSON object with three keys: "title", "keywords", and "category". The "keywords" value should be a single string of comma-separated words.`;
+
+const METADATA_PROMPT = `Write an SEO-optimized title for it, following the format [who or what is in the picture] [with what mood] [what they are doing or what it represents] [against what background] for images of living beings. For other types of images, use the format [what and in what style] [in what colors] [what it represents or what it is used for]. If the picture has a lot of empty space for text, add [with copy space] to the title. Next, provide 49 popular single-word keywords divided by image, including the following: What is depicted in the picture (considering the number or uniqueness of the object) Image angles, colors, moods, themes, locations, ages, skin tones, genders Relevant holidays for which this image may be suitable. If the image could be directly or indirectly related to a holiday, be sure to include that holiday. Do not use words that are already in the title; keywords should expand the search terms. The earlier a word appears in the list, the more relevant it should be to the search, meaning it's more likely that the word will be used to search for the image. Separate the keywords with commas. Be sure that you provide no more than 49 keywords. ${CATEGORIES_LIST} ${JSON_OUTPUT_INSTRUCTION}`;
+
+const VECTOR_METADATA_PROMPT = `You are an expert in stock vector graphics. Your task is to generate metadata for a vector image (like an SVG). Write an SEO-optimized title for it, following the format [object or concept] [style, e.g., flat, isometric, line art] [main colors] [what it represents or is used for]. If the image has a lot of empty space for text, add [with copy space] to the title. Next, provide 49 popular single-word keywords. Crucially, include keywords related to vector graphics such as: vector, illustration, icon, graphic, design, element, symbol, clipart, editable, scalable. Also include keywords for: What is depicted in the picture, dominant colors, artistic style, themes, concepts, and potential use cases (e.g., web design, presentation, logo). Do not use words that are already in the title; keywords should expand the search terms. The earlier a word appears in the list, the more relevant it should be to the search. Separate the keywords with commas. Be sure that you provide no more than 49 keywords. ${CATEGORIES_LIST} ${JSON_OUTPUT_INSTRUCTION}`;
+
 const RESPONSE_SCHEMA = {
     type: Type.OBJECT,
     properties: {
@@ -301,12 +307,13 @@ async function translateKeyword(keyword: string): Promise<string> {
         return trimmedKeyword;
     }
 
-    console.log(`Translating "${trimmedKeyword}" to ${LANGUAGES[currentMetadataLanguage]}`);
+    console.log(`Translating "${trimmedKeyword}" from ${LANGUAGES[currentUiLanguage]} to ${LANGUAGES[currentMetadataLanguage]}`);
     try {
+        const sourceLanguageName = LANGUAGES[currentUiLanguage];
         const targetLanguageName = LANGUAGES[currentMetadataLanguage];
-        const prompt = `Translate the following keyword/phrase to ${targetLanguageName} and return only the translated text, without any additional explanations or quotation marks: "${trimmedKeyword}"`;
+        const prompt = `Translate the following keyword/phrase from ${sourceLanguageName} to ${targetLanguageName} and return only the translated text, without any additional explanations or quotation marks: "${trimmedKeyword}"`;
         
-        const result = await ai.models.generateContent({
+        const result: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
@@ -369,18 +376,22 @@ function setMetadataLanguage(lang: string) {
 /**
  * Creates a generative prompt, including language and optional custom keyword.
  * @param langCode - The language code for the output.
+ * @param fileType - The MIME type of the file.
  * @param customKeyword - The user-provided keyword (optional).
  * @returns The full prompt string.
  */
-function createPrompt(langCode: string, customKeyword?: string): string {
+function createPrompt(langCode: string, fileType: string, customKeyword?: string): string {
+    const isVector = fileType === 'image/svg+xml';
+    const basePrompt = isVector ? VECTOR_METADATA_PROMPT : METADATA_PROMPT;
+    
     const languageName = LANGUAGES[langCode] || 'English';
     const languageInstruction = `The entire response, including title, keywords, and category names, MUST be in ${languageName}.`;
 
     const trimmedKeyword = customKeyword?.trim();
     if (trimmedKeyword) {
-        return `IMPORTANT: You MUST include the custom keyword "${trimmedKeyword}" in both the generated title and the generated list of keywords. Prioritize this keyword. ${languageInstruction} The rest of your instructions are as follows: ${METADATA_PROMPT}`;
+        return `IMPORTANT: You MUST include the custom keyword "${trimmedKeyword}" in both the generated title and the generated list of keywords. Prioritize this keyword. ${languageInstruction} The rest of your instructions are as follows: ${basePrompt}`;
     }
-    return `${languageInstruction} ${METADATA_PROMPT}`;
+    return `${languageInstruction} ${basePrompt}`;
 }
 
 /**
@@ -404,18 +415,91 @@ function closeModal() {
 }
 
 /**
- * Converts a file to a base64 encoded string.
+ * Converts a file to a base64 encoded string. For formats not directly supported by the API (SVG, GIF, BMP),
+ * it converts them to PNG format before encoding.
+ * @param file The image file to process.
+ * @returns A promise that resolves to an object containing the mimeType and base64 data.
  */
 async function fileToGenerativePart(file: File): Promise<UploadedImage> {
-  const base64EncodedDataPromise = new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
-  });
-  return {
-    mimeType: file.type,
-    data: await base64EncodedDataPromise,
-  };
+    const supportedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    // If type is supported by Gemini, just encode it
+    if (supportedTypes.includes(file.type)) {
+        const base64EncodedDataPromise = new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(file);
+        });
+        return {
+            mimeType: file.type,
+            data: await base64EncodedDataPromise,
+        };
+    }
+
+    // For unsupported types, convert to PNG via canvas
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (!event.target?.result) {
+                return reject(new Error('FileReader did not return a result.'));
+            }
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_DIMENSION = 1024; // To prevent massive uploads
+                let width = img.naturalWidth;
+                let height = img.naturalHeight;
+
+                // For SVGs without intrinsic dimensions, we might need a default
+                if (file.type === 'image/svg+xml' && (width === 0 || height === 0)) {
+                    width = 300; // A reasonable default
+                    height = 300;
+                }
+
+                if (width > height) {
+                    if (width > MAX_DIMENSION) {
+                        height = Math.round(height * (MAX_DIMENSION / width));
+                        width = MAX_DIMENSION;
+                    }
+                } else {
+                    if (height > MAX_DIMENSION) {
+                        width = Math.round(width * (MAX_DIMENSION / height));
+                        height = MAX_DIMENSION;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Could not get canvas context'));
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                try {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const base64Data = dataUrl.split(',')[1];
+                     if (!base64Data) {
+                        return reject(new Error('Failed to extract base64 data from canvas.'));
+                    }
+                    resolve({
+                        mimeType: 'image/png', // The new, supported MIME type
+                        data: base64Data,
+                    });
+                } catch (e) {
+                    reject(new Error(`Canvas toDataURL failed: ${e}`));
+                }
+            };
+            img.onerror = (err) => {
+                reject(new Error(`Failed to load image for conversion: ${file.name}. Error: ${err}`));
+            };
+            img.src = event.target.result as string;
+        };
+        reader.onerror = (err) => {
+            reject(new Error(`Failed to read file: ${file.name}. Error: ${err}`));
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 /**
@@ -654,14 +738,21 @@ imageUpload.addEventListener('change', async (event) => {
         if(placeholderText) placeholderText.textContent = TRANSLATIONS[currentUiLanguage].resultsPlaceholderReady;
     }
 
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp', 'image/gif', 'image/bmp'];
+
     for (const file of files) {
-        if (!file.type.startsWith('image/')) continue;
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) continue;
         const id = `${file.name}-${file.lastModified}-${file.size}`;
         if (uploadedFiles.has(id)) continue;
 
-        const generativePart = await fileToGenerativePart(file);
-        const previewUrl = URL.createObjectURL(file);
-        uploadedFiles.set(id, { id, file, generativePart, previewUrl });
+        try {
+            const generativePart = await fileToGenerativePart(file);
+            const previewUrl = URL.createObjectURL(file);
+            uploadedFiles.set(id, { id, file, generativePart, previewUrl });
+        } catch (error) {
+            console.error('Error processing file:', file.name, error);
+            errorMessage.textContent = `Error processing ${file.name}. It might be corrupted or an unsupported format.`;
+        }
     }
 
     renderPreviews();
@@ -719,8 +810,8 @@ generateButton.addEventListener('click', async () => {
     resultsList.scrollTop = resultsList.scrollHeight;
 
     try {
-      const prompt = createPrompt(currentMetadataLanguage, globalKeyword);
-      const result = await ai.models.generateContent({
+      const prompt = createPrompt(currentMetadataLanguage, fileData.file.type, globalKeyword);
+      const result: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: { parts: [{ inlineData: fileData.generativePart }, { text: prompt }] },
         config: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
@@ -786,9 +877,9 @@ async function regenerateMetadata(fileId: string, customKeyword: string) {
             statusElement.innerHTML = `<p><strong>${fileData.file.name}</strong></p><p>${translations.regenerating}</p>`;
         }
 
-        const regenerationPrompt = createPrompt(currentMetadataLanguage, keywordToUse);
+        const regenerationPrompt = createPrompt(currentMetadataLanguage, fileData.file.type, keywordToUse);
         
-        const result = await ai.models.generateContent({
+        const result: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ inlineData: fileData.generativePart }, { text: regenerationPrompt }] },
             config: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
