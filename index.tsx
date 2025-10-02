@@ -374,24 +374,71 @@ function setMetadataLanguage(lang: string) {
 }
 
 /**
- * Creates a generative prompt, including language and optional custom keyword.
+ * Extracts and cleans potential keywords from a filename.
+ * @param filename The full filename (e.g., 'happy-dog-on-beach_123.jpg').
+ * @returns A string of space-separated keywords, or an empty string if none are found.
+ */
+function extractKeywordsFromFilename(filename: string): string {
+    // 1. Get the name part before the extension.
+    const nameOnly = filename.split('.').slice(0, -1).join('.');
+    if (!nameOnly) return '';
+
+    // 2. Replace common separators with spaces and remove other non-alphanumeric characters.
+    const cleaned = nameOnly.replace(/[-_]/g, ' ').replace(/[^a-zA-Z0-9\s]/g, '');
+    
+    // Common camera-generated prefixes to ignore
+    const junkWords = new Set(['img', 'dsc', 'dscn', 'image', 'picture']);
+
+    // 3. Split into words, filter out junk, purely numeric words, and short words.
+    const words = cleaned.split(/\s+/)
+        .map(word => word.toLowerCase())
+        .filter(word => {
+            if (!word || word.length < 3) return false;
+            if (/^\d+$/.test(word)) return false;
+            if (junkWords.has(word)) return false;
+            return true;
+        });
+
+    // 4. If any words remain, return the unique ones.
+    if (words.length > 0) {
+        return [...new Set(words)].join(' ');
+    }
+
+    return '';
+}
+
+/**
+ * Creates a generative prompt, including language, filename context, and optional custom keyword.
  * @param langCode - The language code for the output.
  * @param fileType - The MIME type of the file.
+ * @param fileName - The original filename of the image.
  * @param customKeyword - The user-provided keyword (optional).
  * @returns The full prompt string.
  */
-function createPrompt(langCode: string, fileType: string, customKeyword?: string): string {
+function createPrompt(langCode: string, fileType: string, fileName: string, customKeyword?: string): string {
     const isVector = fileType === 'image/svg+xml';
     const basePrompt = isVector ? VECTOR_METADATA_PROMPT : METADATA_PROMPT;
     
     const languageName = LANGUAGES[langCode] || 'English';
     const languageInstruction = `The entire response, including title, keywords, and category names, MUST be in ${languageName}.`;
 
+    const filenameKeywords = extractKeywordsFromFilename(fileName);
+    let extraInstructions: string[] = [];
+
     const trimmedKeyword = customKeyword?.trim();
     if (trimmedKeyword) {
-        return `IMPORTANT: You MUST include the custom keyword "${trimmedKeyword}" in both the generated title and the generated list of keywords. Prioritize this keyword. ${languageInstruction} The rest of your instructions are as follows: ${basePrompt}`;
+        extraInstructions.push(`You MUST include the custom keyword "${trimmedKeyword}" in both the generated title and the generated list of keywords. Prioritize this keyword.`);
     }
-    return `${languageInstruction} ${basePrompt}`;
+    
+    if (filenameKeywords) {
+        extraInstructions.push(`The original filename contained the words "${filenameKeywords}". If these words are descriptive and relevant to the image content, you MUST incorporate them naturally into the title and add them to the keywords. If they seem like random characters or numbers, ignore them.`);
+    }
+
+    const finalInstructions = extraInstructions.length > 0 
+        ? `IMPORTANT: ${extraInstructions.join(' ')} ${languageInstruction}`
+        : languageInstruction;
+
+    return `${finalInstructions} The rest of your instructions are as follows: ${basePrompt}`;
 }
 
 /**
@@ -810,7 +857,7 @@ generateButton.addEventListener('click', async () => {
     resultsList.scrollTop = resultsList.scrollHeight;
 
     try {
-      const prompt = createPrompt(currentMetadataLanguage, fileData.file.type, globalKeyword);
+      const prompt = createPrompt(currentMetadataLanguage, fileData.file.type, fileData.file.name, globalKeyword);
       const result: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: { parts: [{ inlineData: fileData.generativePart }, { text: prompt }] },
@@ -877,7 +924,7 @@ async function regenerateMetadata(fileId: string, customKeyword: string) {
             statusElement.innerHTML = `<p><strong>${fileData.file.name}</strong></p><p>${translations.regenerating}</p>`;
         }
 
-        const regenerationPrompt = createPrompt(currentMetadataLanguage, fileData.file.type, keywordToUse);
+        const regenerationPrompt = createPrompt(currentMetadataLanguage, fileData.file.type, fileData.file.name, keywordToUse);
         
         const result: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
